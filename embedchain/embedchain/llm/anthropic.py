@@ -46,7 +46,13 @@ class AnthropicLlm(BaseLlm):
     @staticmethod
     def _get_answer(prompt: str, config: BaseLlmConfig) -> str:
         api_key = config.api_key or os.getenv("ANTHROPIC_API_KEY")
-        chat = ChatAnthropic(anthropic_api_key=api_key, temperature=config.temperature, model_name=config.model)
+        base_url = config.base_url or os.getenv("ANTHROPIC_BASE_URL") or None
+        chat = ChatAnthropic(
+            anthropic_api_key=api_key,
+            temperature=config.temperature,
+            model_name=config.model,
+            anthropic_api_url=base_url,
+        )
 
         if config.max_tokens and config.max_tokens != 1000:
             logger.warning("Config option `max_tokens` is not supported by this model.")

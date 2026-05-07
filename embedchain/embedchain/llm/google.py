@@ -23,7 +23,9 @@ class GoogleLlm(BaseLlm):
             raise ValueError("Please set the GOOGLE_API_KEY environment variable or pass it in the config.")
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
-        genai.configure(api_key=api_key)
+        base_url = self.config.base_url or os.getenv("GOOGLE_BASE_URL") or None
+        client_options = {"api_endpoint": base_url} if base_url else None
+        genai.configure(api_key=api_key, client_options=client_options)
 
     def get_llm_model_answer(self, prompt):
         if self.config.system_prompt:

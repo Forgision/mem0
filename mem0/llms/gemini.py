@@ -20,7 +20,7 @@ class GeminiLLM(LLMBase):
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
         # base_url: env var -> None. Custom endpoint support (proxies, gateways).
-        base_url = os.getenv("GEMINI_BASE_URL") or None
+        base_url = os.getenv("GOOGLE_BASE_URL") or None
         http_options = types.HttpOptions(base_url=base_url) if base_url else None
         self.client = genai.Client(api_key=api_key, http_options=http_options)
 

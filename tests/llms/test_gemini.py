@@ -190,10 +190,10 @@ def test_parse_response_empty_parts_with_tools(mock_gemini_client: Mock):
 
 
 def test_gemini_base_url_from_env():
-    """GEMINI_BASE_URL env var should be passed as http_options to genai.Client."""
+    """GOOGLE_BASE_URL env var should be passed as http_options to genai.Client."""
     with (
         patch("mem0.llms.gemini.genai.Client") as mock_client_class,
-        patch.dict("os.environ", {"GEMINI_BASE_URL": "https://proxy.example.com"}),
+        patch.dict("os.environ", {"GOOGLE_BASE_URL": "https://proxy.example.com"}),
     ):
         mock_client_class.return_value = Mock()
         config = BaseLlmConfig(model="gemini-2.0-flash", api_key="test-key")
@@ -207,7 +207,7 @@ def test_gemini_base_url_from_env():
 
 
 def test_gemini_no_base_url_by_default():
-    """Without GEMINI_BASE_URL, http_options should be None."""
+    """Without GOOGLE_BASE_URL, http_options should be None."""
     with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
         mock_client_class.return_value = Mock()
         config = BaseLlmConfig(model="gemini-2.0-flash", api_key="test-key")
