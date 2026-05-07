@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -10,28 +11,28 @@ from mem0.llms.anthropic import AnthropicLLM
 
 
 @pytest.fixture
-def mock_anthropic_client():
+def mock_anthropic():
     with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
         mock_client = Mock()
         mock_anthropic.Anthropic.return_value = mock_client
-        yield mock_client
+        yield mock_anthropic
 
 
-def test_default_config_omits_top_p(mock_anthropic_client):
+def test_default_config_omits_top_p(mock_anthropic):
     """Default AnthropicConfig should not set top_p to avoid conflict with temperature."""
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
     assert config.top_p is None
     assert config.temperature == 0.1
 
 
-def test_generate_response_does_not_send_top_p_by_default(mock_anthropic_client):
+def test_generate_response_does_not_send_top_p_by_default(mock_anthropic):
     """Anthropic API rejects temperature and top_p together; top_p must be omitted by default."""
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
     llm = AnthropicLLM(config)
 
     mock_response = Mock()
     mock_response.content = [Mock(text="Hello!")]
-    mock_anthropic_client.messages.create.return_value = mock_response
+    mock_anthropic.Anthropic.return_value.messages.create.return_value = mock_response
 
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -40,19 +41,19 @@ def test_generate_response_does_not_send_top_p_by_default(mock_anthropic_client)
 
     llm.generate_response(messages)
 
-    call_kwargs = mock_anthropic_client.messages.create.call_args[1]
+    call_kwargs = mock_anthropic.Anthropic.return_value.messages.create.call_args[1]
     assert "top_p" not in call_kwargs
     assert call_kwargs["temperature"] == 0.1
 
 
-def test_generate_response_sends_top_p_alone_when_no_temperature(mock_anthropic_client):
+def test_generate_response_sends_top_p_alone_when_no_temperature(mock_anthropic):
     """When user sets only top_p (no temperature), top_p should be sent."""
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key", top_p=0.9, temperature=None)
     llm = AnthropicLLM(config)
 
     mock_response = Mock()
     mock_response.content = [Mock(text="Hello!")]
-    mock_anthropic_client.messages.create.return_value = mock_response
+    mock_anthropic.Anthropic.return_value.messages.create.return_value = mock_response
 
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -61,40 +62,70 @@ def test_generate_response_sends_top_p_alone_when_no_temperature(mock_anthropic_
 
     llm.generate_response(messages)
 
-    call_kwargs = mock_anthropic_client.messages.create.call_args[1]
+    call_kwargs = mock_anthropic.Anthropic.return_value.messages.create.call_args[1]
     assert call_kwargs["top_p"] == 0.9
     assert "temperature" not in call_kwargs
 
 
-def test_both_set_prefers_temperature_over_top_p(mock_anthropic_client):
+def test_both_set_prefers_temperature_over_top_p(mock_anthropic):
     """When both temperature and top_p are set, temperature wins and top_p is dropped."""
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key", top_p=0.9, temperature=0.5)
     llm = AnthropicLLM(config)
 
     mock_response = Mock()
     mock_response.content = [Mock(text="Hello!")]
-    mock_anthropic_client.messages.create.return_value = mock_response
+    mock_anthropic.Anthropic.return_value.messages.create.return_value = mock_response
 
     messages = [{"role": "user", "content": "Hi"}]
     llm.generate_response(messages)
 
-    call_kwargs = mock_anthropic_client.messages.create.call_args[1]
+    call_kwargs = mock_anthropic.Anthropic.return_value.messages.create.call_args[1]
     assert call_kwargs["temperature"] == 0.5
     assert "top_p" not in call_kwargs
 
 
-def test_base_config_conversion_does_not_send_both(mock_anthropic_client):
+def test_base_config_conversion_does_not_send_both(mock_anthropic):
     """BaseLlmConfig defaults both temperature=0.1 and top_p=0.1; Anthropic must not send both."""
     base_config = BaseLlmConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
     llm = AnthropicLLM(base_config)
 
     mock_response = Mock()
     mock_response.content = [Mock(text="Hello!")]
-    mock_anthropic_client.messages.create.return_value = mock_response
+    mock_anthropic.Anthropic.return_value.messages.create.return_value = mock_response
 
     messages = [{"role": "user", "content": "Hi"}]
     llm.generate_response(messages)
 
-    call_kwargs = mock_anthropic_client.messages.create.call_args[1]
+    call_kwargs = mock_anthropic.Anthropic.return_value.messages.create.call_args[1]
     assert "temperature" in call_kwargs
     assert "top_p" not in call_kwargs
+
+
+def test_anthropic_base_url_from_env(mock_anthropic):
+    """ANTHROPIC_BASE_URL env var should be passed to the Anthropic client."""
+    with patch.dict("os.environ", {"ANTHROPIC_BASE_URL": "https://proxy.example.com"}):
+        config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+        AnthropicLLM(config)
+
+    mock_anthropic.Anthropic.assert_called_once_with(api_key="test-key", base_url="https://proxy.example.com")
+
+
+def test_anthropic_base_url_from_config(mock_anthropic):
+    """anthropic_base_url in config should take priority over env var."""
+    config = AnthropicConfig(
+        model="claude-3-5-sonnet-20240620", api_key="test-key", anthropic_base_url="https://config.example.com"
+    )
+    AnthropicLLM(config)
+
+    mock_anthropic.Anthropic.assert_called_once_with(api_key="test-key", base_url="https://config.example.com")
+
+
+def test_anthropic_no_base_url_by_default(mock_anthropic):
+    """Without ANTHROPIC_BASE_URL, base_url should not be passed to client."""
+    env = os.environ.copy()
+    env.pop("ANTHROPIC_BASE_URL", None)
+    with patch.dict("os.environ", env, clear=True):
+        config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+        AnthropicLLM(config)
+
+    mock_anthropic.Anthropic.assert_called_once_with(api_key="test-key", base_url=None)

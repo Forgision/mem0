@@ -32,13 +32,20 @@ class AnthropicLLM(LLMBase):
                 http_client_proxies=config.http_client,
             )
 
+        # base_url: config -> env var -> None. AnthropicConfig has anthropic_base_url,
+        # BaseLlmConfig does not — isinstance check satisfies type checkers.
+        base_url: str | None = None
+        if isinstance(config, AnthropicConfig):
+            base_url = config.anthropic_base_url
+
         super().__init__(config)
 
         if not self.config.model:
             self.config.model = "claude-3-5-sonnet-20240620"
 
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.client = anthropic.Anthropic(api_key=api_key)
+        base_url = base_url or os.getenv("ANTHROPIC_BASE_URL") or None
+        self.client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
 
     def _get_common_params(self, **kwargs) -> Dict:
         """Get common parameters, avoiding sending both temperature and top_p together.

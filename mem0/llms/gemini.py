@@ -19,7 +19,10 @@ class GeminiLLM(LLMBase):
             self.config.model = "gemini-2.0-flash"
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
-        self.client = genai.Client(api_key=api_key)
+        # base_url: env var -> None. Custom endpoint support (proxies, gateways).
+        base_url = os.getenv("GEMINI_BASE_URL") or None
+        http_options = types.HttpOptions(base_url=base_url) if base_url else None
+        self.client = genai.Client(api_key=api_key, http_options=http_options)
 
     def _parse_response(self, response, tools):
         """
