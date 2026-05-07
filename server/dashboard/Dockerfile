@@ -1,14 +1,14 @@
 FROM node:22-alpine AS base
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat vips-dev
 WORKDIR /app
 
 # Dependencies
 FROM base AS deps
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile --network-timeout 600000; \
   elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --config.onlyBuiltDependencies="sharp,unrs-resolver"; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i; \
   else npm install; \
   fi
 
