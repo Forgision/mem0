@@ -153,3 +153,8 @@ known-first-party = ["mem0", "mem0_cli"]
 [tool.isort]
 profile = "black"
 known_first_party = ["mem0", "mem0_cli"]
+
+[dependency-groups]
+dev = [
+    "anthropic>=0.100.0",
+]
