@@ -4,7 +4,7 @@
 **Environment:** `https://mem0.ocsys.duckdns.org`
 **Date observed:** 2026-05-06
 **Severity:** High — users can log in, but session refresh breaks and the UI eventually loses authentication
-**Status:** Fixed in the `sach` branch / deployment pattern below
+**Status:** Fixed in the `fix/refresh-route` branch
 
 > Secrets and token values below are redacted in this record.
 
@@ -34,286 +34,97 @@
 
 ---
 
-## Compose / environment snapshot
+## Errors observed (chronological)
 
-### Docker Compose
-```yaml
-name: mem0-dev
+### Error 1: 405 Method Not Allowed on `PUT /api/auth/refresh`
+When NGINX split `/api/*` to FastAPI directly, the browser's `PUT` request (meant for the Next.js BFF cookie store) hit FastAPI which only accepts `POST`.
 
-services:
-  mem0:
-    build:
-      context: ..
-      dockerfile: server/dev.Dockerfile
-    ports:
-      - "8888:8000"
-    env_file:
-      - .env
-    networks:
-      - mem0_network
-    volumes:
-      - ./history:/app/history
-      - .:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: >
-      sh -c "rm -rf /app/packages && pip install -q --force-reinstall --no-deps mem0ai && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
-    environment:
-      - PYTHONDONTWRITEBYTECODE=1
-      - PYTHONUNBUFFERED=1
-      - PYTHONPATH=
-      - DASHBOARD_URL=${DASHBOARD_URL:-https://mem0.ocsys.duckdns.org}
-      - APP_DB_NAME=${APP_DB_NAME:-mem0_app}
-      - JWT_SECRET=${JWT_SECRET}
-      - AUTH_DISABLED=${AUTH_DISABLED:-true}
-      - MEM0_TELEMETRY=${MEM0_TELEMETRY:-false}
+### Error 2: 404 on `POST /api/auth/login`
+After routing all traffic through the dashboard (fixing Error 1), the Next.js dashboard had no route handler for `/api/auth/login`. Only `/api/auth/refresh` and `/api/health` had BFF routes. All other `/api/*` paths returned 404.
 
-  postgres:
-    image: ankane/pgvector:v0.5.1
-    restart: on-failure
-    shm_size: "128mb"
-    networks:
-      - mem0_network
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    healthcheck:
-      test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - postgres_db:/var/lib/postgresql/data
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-    ports:
-      - "8432:5432"
-
-  mem0-dashboard:
-    build: ./dashboard
-    ports:
-      - "3333:3000"
-    networks:
-      - mem0_network
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://mem0.ocsys.duckdns.org/api}
-      - API_INTERNAL_URL=http://mem0:8000
-      - NEXT_PUBLIC_INSTANCE_NAME=Mem0
-    depends_on:
-      mem0:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://mem0-dashboard:3000/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-volumes:
-  postgres_db:
-
-networks:
-  mem0_network:
-    driver: bridge
-```
-
-### `.env`
-```env
-OPENAI_API_KEY=<redacted>
-OPENAI_BASE_URL=https://gm.ocsys.duckdns.org/v1
-
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-POSTGRES_DB=postgres
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_COLLECTION_NAME=mem0
-
-ADMIN_API_KEY=<redacted>
-JWT_SECRET=<redacted>
-
-AUTH_DISABLED=false
-DASHBOARD_URL=https://mem0.ocsys.duckdns.org
-NEXT_PUBLIC_API_URL=https://mem0.ocsys.duckdns.org/api
-APP_DB_NAME=mem0_app
-
-MEM0_DEFAULT_LLM_MODEL=gemini-2.5-flash-lite
-MEM0_DEFAULT_EMBEDDER_MODEL=gemini-embedding-001
-MEM0_TELEMETRY=false
-REQUEST_LOG_RETENTION_DAYS=30
-```
+### Error 3: 404 on `POST /auth/login` (no `/api` prefix)
+When `NEXT_PUBLIC_API_URL` was set to bare domain `https://mem0.ocsys.duckdns.org` (missing `/api` suffix), the axios client built URLs without the `/api` prefix. The request hit the middleware which redirected to `/login?next=/auth/login` (307), then the page route returned 405. In other cases Next.js returned 404 directly because no route matched `/auth/login`.
 
 ---
 
-## Symptom
+## Root cause analysis
 
-The browser can reach the app, but login/session refresh fails during `/api/auth/refresh`.
-
-A representative failing request is:
-
-```bash
-curl.exe "https://mem0.ocsys.duckdns.org/api/auth/refresh" ^
-  -X PUT ^
-  -H "Origin: https://mem0.ocsys.duckdns.org" ^
-  -H "Content-Type: application/json" ^
-  --data-raw "{\"refresh_token\":\"<redacted>\"}"
-```
-
-Observed result:
-- `405 Method Not Allowed` when using `PUT`
-- If the client uses `POST` but sends no refresh token body, `422 Unprocessable Entity` can occur
-- The session does not refresh cleanly, so the UI eventually loses auth state
-
----
-
-## Root cause
-
-### 1) Wrong HTTP method for the refresh route
-The Mem0 auth refresh endpoint is implemented as `POST /auth/refresh`, not `PUT`. When the browser or client sends `PUT`, FastAPI returns `405 Method Not Allowed`.
-
-### 2) NGINX routing was sending `/api/*` directly to the backend
-The NGINX Proxy Manager config was proxying `/api/` straight to the FastAPI container at `10.250.1.13:8888`. That bypasses the dashboard-side API behavior and makes the browser depend on the backend route shape and method support directly.
-
-### 3) Origin and cookie/auth coupling
-Mem0’s server CORS is tied to `DASHBOARD_URL`, so the browser must use one stable public origin. Split-origin or mixed localhost/public URLs will trigger CORS or auth state problems.
-
-### 4) Client build-time API URL mismatch
-`NEXT_PUBLIC_*` values are baked into the dashboard at build time. Changing `NEXT_PUBLIC_API_URL` in `.env` without rebuilding the dashboard can leave the browser calling the old endpoint.
-
----
-
-## What the server code is doing
-
-### `server/main.py`
-- Enables FastAPI CORS middleware
-- CORS origin is derived from `DASHBOARD_URL`
-- This means the browser must use the same public dashboard origin that the server expects
-
-### `server/routers/auth.py`
-- Refresh endpoint is `POST /auth/refresh`
-- The route does **not** accept `PUT` in the baseline flow
-- The refresh request expects a valid `refresh_token` payload
-
-### Dashboard-side client flow
-- Browser-visible requests should go through the dashboard origin
-- Public API URL should be same-origin (`/api`) rather than a separate host/port
-- If the dashboard bundle is not rebuilt after changing `NEXT_PUBLIC_API_URL`, the browser can continue to call an outdated endpoint
-
----
-
-## Why the earlier NPM split caused trouble
-
-The old NPM split looked like this:
-
+### Architecture
 ```text
-Browser → NGINX
-  ├─ / → dashboard:3000
-  └─ /api/* → fastapi:8888
+Browser → Next.js Dashboard (BFF)
+           ├─ /api/auth/refresh  → specific BFF route (POST/PUT/DELETE for cookie mgmt)
+           ├─ /api/health         → specific route (static response)
+           └─ /api/*              → catch-all proxy → FastAPI backend
 ```
 
-That pattern is fragile for Mem0 because:
-- browser requests become cross-path / cross-origin sensitive
-- auth refresh is method-sensitive
-- refresh payloads must be preserved exactly
-- cookie and CORS assumptions must stay aligned across dashboard and API
+### Why each error happened
+
+**Error 1 (405):** NGINX bypassed the dashboard BFF and sent `/api/*` directly to FastAPI. The browser's `PUT /api/auth/refresh` (meant to store a cookie in the BFF) hit FastAPI which only has `POST /auth/refresh`.
+
+**Error 2 (404):** Routing fixed to go through dashboard, but dashboard only had BFF routes for refresh and health. No handler for login, register, me, memories, etc.
+
+**Error 3 (404/405):** `NEXT_PUBLIC_API_URL` set to bare domain without `/api` suffix. Browser sent requests to `/auth/login` instead of `/api/auth/login`. The catch-all proxy only handles `/api/*`.
 
 ---
 
-## Robust fix
+## Code changes applied (DO NOT REVERT)
 
-The safest fix is to make the browser see **one public origin only** and keep Mem0’s dashboard in control of the API flow.
+### 1. Catch-all API proxy: `server/dashboard/src/app/api/[...path]/route.ts`
+**New file.** Proxies all unhandled `/api/*` requests to FastAPI backend via `API_INTERNAL_URL`.
 
-### Recommended architecture
-```text
-Browser → NGINX → Dashboard:3000
-                     ├─ /api/auth/refresh → dashboard BFF / auth route
-                     └─ /api/* → dashboard catch-all proxy → FastAPI (internal)
-```
+Why: The dashboard BFF only had specific routes for `/api/auth/refresh` and `/api/health`. All other API calls (login, register, memories, etc.) had no handler → 404. This catch-all forwards them to the FastAPI backend while specific BFF routes keep priority.
 
-### Required changes
+Route priority in Next.js:
+- `/api/auth/refresh/route.ts` (specific) → handles cookie-based token refresh
+- `/api/health/route.ts` (specific) → returns static health response
+- `/api/[...path]/route.ts` (catch-all) → proxies everything else to FastAPI
 
-#### 1) Keep the public API path same-origin
-Set the dashboard API URL to a relative path:
+### 2. Middleware update: `server/dashboard/src/middleware.ts`
+Changed `PUBLIC_PATHS` from `["/_next", "/api/auth", "/api/health", ...]` to `["/_next", "/api", ...]`.
 
+Why: Only `/api/auth` and `/api/health` were public paths. Other API calls like `/api/memories`, `/api/auth/login` went through the auth check and got redirected to `/login` (a page redirect, not an API response). Widening to `/api` lets all API paths pass through — API endpoints handle their own auth via JWT.
+
+### 3. Configurable env: `server/docker-compose.yaml` + `server/.env.example`
+- `DASHBOARD_URL` now reads from `.env` (was hardcoded)
+- `DASHBOARD_PORT` configurable, defaults to 3000
+- `NEXT_PUBLIC_API_URL` configurable via `.env`
+- Dashboard service uses `env_file` for full `.env` passthrough
+
+---
+
+## Required deployment configuration
+
+### `.env` settings
 ```env
 NEXT_PUBLIC_API_URL=/api
-```
-
-Then rebuild the dashboard image so the client bundle picks it up.
-
-#### 2) Point dashboard CORS to the public dashboard URL
-```env
 DASHBOARD_URL=https://mem0.ocsys.duckdns.org
-```
-
-#### 3) Keep internal backend access separate from browser access
-```env
 API_INTERNAL_URL=http://mem0:8000
 ```
 
-#### 4) Make the refresh handler tolerant during rollout
-For maximum compatibility, the refresh endpoint should accept the current client behavior and the corrected one:
-- `POST` as the intended method
-- temporary `PUT` compatibility if an older client is still sending it
-- refresh token read from body, with cookie fallback if used in the dashboard flow
+**Critical:** `NEXT_PUBLIC_API_URL` MUST include the `/api` prefix. The dashboard's `entrypoint.sh` does runtime sed substitution on `.next/` files to replace the build-time placeholder. Setting it without `/api` causes the browser to send requests to `/auth/login` instead of `/api/auth/login`, bypassing both the middleware public path check and the catch-all proxy.
 
-#### 5) Route only the dashboard through NPM at the edge
-In NGINX Proxy Manager, forward the public host to the dashboard service only:
+### NGINX Proxy Manager
+Route ALL traffic through the dashboard only:
 - `mem0.ocsys.duckdns.org` → `10.250.1.13:3333`
-- do **not** split `/api` at the NPM layer
-
----
-
-## Safer NGINX Proxy Manager configuration
-
-### Edge proxy host
-- Domain: `mem0.ocsys.duckdns.org`
-- Forward hostname/IP: `10.250.1.13`
-- Forward port: `3333`
-
-### No custom `/api` location in NPM
-The dashboard should own `/api/*` behavior.
-
-If a custom location is still present, the minimal proxy must preserve headers and path:
-
-```nginx
-location /api/ {
-    proxy_pass http://10.250.1.13:8888/;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_buffering off;
-}
-```
-
-But the stronger fix is to remove this split and let the dashboard handle `/api/*` itself.
+- Do **not** split `/api` at the NPM layer
 
 ---
 
 ## Validation checklist
 
-1. Rebuild the dashboard after setting `NEXT_PUBLIC_API_URL=/api`
-2. Confirm the browser calls `https://mem0.ocsys.duckdns.org/api/...`
-3. Confirm `/api/auth/refresh` uses `POST`
-4. Confirm the dashboard origin matches `DASHBOARD_URL`
-5. Confirm refresh succeeds after a page reload
-6. Confirm login no longer falls back to a broken refresh cycle
-
----
-
-## Outcome
-
-After the fix:
-- no more `405` from sending `PUT` to refresh
-- no more origin mismatch between dashboard and backend
-- no more split-origin auth fragility
-- session refresh remains stable after reload
+1. Set `NEXT_PUBLIC_API_URL=/api` in `.env`
+2. Restart dashboard container (`docker compose up -d mem0-dashboard`)
+3. Confirm browser calls `https://mem0.ocsys.duckdns.org/api/...`
+4. Confirm `POST /api/auth/login` returns 200 (not 404)
+5. Confirm `POST /api/auth/refresh` returns 200 (not 405)
+6. Confirm session refresh works after page reload
 
 ---
 
 ## Notes for future changes
 
-- Any change to `NEXT_PUBLIC_API_URL` requires rebuilding the dashboard image
-- If a proxy ever forwards the browser directly to FastAPI for `/api/auth/refresh`, the method and payload must still match the backend route exactly
+- `NEXT_PUBLIC_API_URL` must always end with `/api` — the catch-all proxy only handles `/api/*` paths
+- The catch-all proxy must not be removed — it handles all non-BFF API routes (login, register, memories, entities, etc.)
+- The middleware `PUBLIC_PATHS` must include `/api` (not just `/api/auth` and `/api/health`)
+- If adding new BFF routes under `/api/`, they automatically take priority over the catch-all
 - Keep the public browser origin stable; avoid mixing `localhost`, WireGuard IPs, and the public domain in production
