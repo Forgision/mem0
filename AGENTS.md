@@ -1,4 +1,4 @@
-# AGENTS.md
+# AGENTS.md or CLAUDE.md
 
 This file provides context for AI coding assistants (Claude Code, Cursor, GitHub Copilot, Codex, etc.) working with the Mem0 repository.
 
