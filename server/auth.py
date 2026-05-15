@@ -90,6 +90,8 @@ def consume_refresh_jti(jti: str, db: Session) -> None:
         )
         .values(used_at=now)
     )
+    assert result is not None, "SQLAlchemy Core should always return a result for UPDATE statements"
+    assert hasattr(result, "rowcount"), "Result should have rowcount attribute"
     if result.rowcount == 0:
         raise HTTPException(status_code=401, detail="Refresh token is no longer valid.")
     db.commit()
