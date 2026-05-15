@@ -29,7 +29,7 @@ Add Gemini provider factories matching the Ollama/OpenAI pattern.
 
 ```python
 def _build_gemini_llm_config(model, api_key, base_url, ollama_base_url):
-    config = {"model": model or "gemini-2.0-flash"}
+    config = {"model": model or "gemini-2.5-flash-lite"}
     if api_key:
         config["api_key"] = api_key
     if base_url:
@@ -41,7 +41,7 @@ def _build_gemini_llm_config(model, api_key, base_url, ollama_base_url):
 
 ```python
 def _build_gemini_embedder_config(model, api_key, base_url, ollama_base_url, llm_base_url):
-    config = {"model": model or "models/gemini-embedding-001"}
+    config = {"model": model or "gemini-embedding-001"}
     if api_key:
         config["api_key"] = api_key
     if base_url:
@@ -70,7 +70,7 @@ Insert factories after line 158 (after `_build_openai_llm_config`) and before th
 
 | Provider | LLM Default | Embedder Default |
 |----------|-------------|------------------|
-| gemini   | `gemini-2.0-flash` | `models/gemini-embedding-001` |
+| gemini   | `gemini-2.5-flash-lite` | `gemini-embedding-001` |
 
 ## Configuration Example
 
@@ -80,7 +80,7 @@ Insert factories after line 158 (after `_build_openai_llm_config`) and before th
     "llm": {
       "provider": "gemini",
       "config": {
-        "model": "gemini-2.0-flash",
+        "model": "gemini-2.5-flash-lite",
         "api_key": "env:GOOGLE_API_KEY",
         "base_url": "https://custom-gateway.example.com"
       }
@@ -88,7 +88,7 @@ Insert factories after line 158 (after `_build_openai_llm_config`) and before th
     "embedder": {
       "provider": "gemini",
       "config": {
-        "model": "models/gemini-embedding-001",
+        "model": "gemini-embedding-001",
         "api_key": "env:GOOGLE_API_KEY"
       }
     }
