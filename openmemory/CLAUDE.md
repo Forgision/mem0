@@ -2,6 +2,18 @@
 
 Standalone subproject. Do NOT modify mem0/ without permission.
 
+## Dev Commands
+
+```bash
+# Lint & Format
+uv run ruff check .                            # Lint
+uv run ruff check --fix .                      # Lint + auto-fix
+uv run ruff format .                           # Format
+
+# Type Check
+uv run ty check .                              # Static type check
+```
+
 ## Provider Factories
 
 **File:** `api/app/utils/memory.py`
