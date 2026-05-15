@@ -42,6 +42,7 @@ load_dotenv()
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
 
+
 # Don't initialize memory client at import time - do it lazily when needed
 def get_memory_client_safe():
     """Get memory client with error handling. Returns None if client cannot be initialized."""
@@ -50,6 +51,7 @@ def get_memory_client_safe():
     except Exception as e:
         logging.warning(f"Failed to get memory client: {e}")
         return None
+
 
 # Context variables for user_id and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
@@ -61,7 +63,10 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to False to store the memory verbatim without LLM fact extraction.")
+
+@mcp.tool(
+    description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to False to store the memory verbatim without LLM fact extraction."
+)
 async def add_memories(text: str, infer: bool = True) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
@@ -86,44 +91,46 @@ async def add_memories(text: str, infer: bool = True) -> str:
             if not app.is_active:
                 return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
 
-            response = memory_client.add(text,
-                                         user_id=uid,
-                                         metadata={
-                                            "source_app": "openmemory",
-                                            "mcp_client": client_name,
-                                         },
-                                         infer=infer)
+            response = memory_client.add(
+                text,
+                user_id=uid,
+                metadata={
+                    "source_app": "openmemory",
+                    "mcp_client": client_name,
+                },
+                infer=infer,
+            )
 
             # Process the response and update database
-            if isinstance(response, dict) and 'results' in response:
-                for result in response['results']:
-                    memory_id = uuid.UUID(result['id'])
+            if isinstance(response, dict) and "results" in response:
+                for result in response["results"]:
+                    memory_id = uuid.UUID(result["id"])
                     memory = db.query(Memory).filter(Memory.id == memory_id).first()
 
-                    if result['event'] == 'ADD':
+                    if result["event"] == "ADD":
                         if not memory:
                             memory = Memory(
                                 id=memory_id,
                                 user_id=user.id,
                                 app_id=app.id,
-                                content=result['memory'],
-                                state=MemoryState.active
+                                content=result["memory"],
+                                state=MemoryState.active,
                             )
                             db.add(memory)
                         else:
                             memory.state = MemoryState.active
-                            memory.content = result['memory']
+                            memory.content = result["memory"]
 
                         # Create history entry
                         history = MemoryStatusHistory(
                             memory_id=memory_id,
                             changed_by=user.id,
                             old_state=MemoryState.deleted if memory else None,
-                            new_state=MemoryState.active
+                            new_state=MemoryState.active,
                         )
                         db.add(history)
 
-                    elif result['event'] == 'DELETE':
+                    elif result["event"] == "DELETE":
                         if memory:
                             memory.state = MemoryState.deleted
                             memory.deleted_at = datetime.datetime.now(datetime.UTC)
@@ -132,7 +139,7 @@ async def add_memories(text: str, infer: bool = True) -> str:
                                 memory_id=memory_id,
                                 changed_by=user.id,
                                 old_state=MemoryState.active,
-                                new_state=MemoryState.deleted
+                                new_state=MemoryState.deleted,
                             )
                             db.add(history)
 
@@ -168,18 +175,18 @@ async def search_memory(query: str) -> str:
 
             # Get accessible memory IDs based on ACL
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memory_ids = [
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+            ]
 
-            filters = {
-                "user_id": uid
-            }
+            filters = {"user_id": uid}
 
             embeddings = memory_client.embedding_model.embed(query, "search")
 
             hits = memory_client.vector_store.search(
-                query=query, 
-                vectors=embeddings, 
-                limit=10, 
+                query=query,
+                vectors=embeddings,
+                limit=10,
                 filters=filters,
             )
 
@@ -191,18 +198,20 @@ async def search_memory(query: str) -> str:
                 id, score, payload = h.id, h.score, h.payload
                 if allowed and (h.id is None or h.id not in allowed):
                     continue
-                
-                results.append({
-                    "id": id, 
-                    "memory": payload.get("data"), 
-                    "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
-                    "score": score,
-                })
 
-            for r in results: 
-                if r.get("id"): 
+                results.append(
+                    {
+                        "id": id,
+                        "memory": payload.get("data"),
+                        "hash": payload.get("hash"),
+                        "created_at": payload.get("created_at"),
+                        "updated_at": payload.get("updated_at"),
+                        "score": score,
+                    }
+                )
+
+            for r in results:
+                if r.get("id"):
                     access_log = MemoryAccessLog(
                         memory_id=uuid.UUID(r["id"]),
                         app_id=app.id,
@@ -250,27 +259,27 @@ async def list_memories() -> str:
 
             # Filter memories based on permissions
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
-            if isinstance(memories, dict) and 'results' in memories:
-                for memory_data in memories['results']:
-                    if 'id' in memory_data:
-                        memory_id = uuid.UUID(memory_data['id'])
+            accessible_memory_ids = [
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+            ]
+            if isinstance(memories, dict) and "results" in memories:
+                for memory_data in memories["results"]:
+                    if "id" in memory_data:
+                        memory_id = uuid.UUID(memory_data["id"])
                         if memory_id in accessible_memory_ids:
                             # Create access log entry
                             access_log = MemoryAccessLog(
                                 memory_id=memory_id,
                                 app_id=app.id,
                                 access_type="list",
-                                metadata_={
-                                    "hash": memory_data.get('hash')
-                                }
+                                metadata_={"hash": memory_data.get("hash")},
                             )
                             db.add(access_log)
                             filtered_memories.append(memory_data)
                 db.commit()
             else:
                 for memory in memories:
-                    memory_id = uuid.UUID(memory['id'])
+                    memory_id = uuid.UUID(memory["id"])
                     memory_obj = db.query(Memory).filter(Memory.id == memory_id).first()
                     if memory_obj and check_memory_access_permissions(db, memory_obj, app.id):
                         # Create access log entry
@@ -278,9 +287,7 @@ async def list_memories() -> str:
                             memory_id=memory_id,
                             app_id=app.id,
                             access_type="list",
-                            metadata_={
-                                "hash": memory.get('hash')
-                            }
+                            metadata_={"hash": memory.get("hash")},
                         )
                         db.add(access_log)
                         filtered_memories.append(memory)
@@ -316,7 +323,9 @@ async def delete_memories(memory_ids: list[str]) -> str:
             # Convert string IDs to UUIDs and filter accessible ones
             requested_ids = [uuid.UUID(mid) for mid in memory_ids]
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memory_ids = [
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+            ]
 
             # Only delete memories that are both requested and accessible
             ids_to_delete = [mid for mid in requested_ids if mid in accessible_memory_ids]
@@ -345,7 +354,7 @@ async def delete_memories(memory_ids: list[str]) -> str:
                         memory_id=memory_id,
                         changed_by=user.id,
                         old_state=MemoryState.active,
-                        new_state=MemoryState.deleted
+                        new_state=MemoryState.deleted,
                     )
                     db.add(history)
 
@@ -354,7 +363,7 @@ async def delete_memories(memory_ids: list[str]) -> str:
                         memory_id=memory_id,
                         app_id=app.id,
                         access_type="delete",
-                        metadata_={"operation": "delete_by_id"}
+                        metadata_={"operation": "delete_by_id"},
                     )
                     db.add(access_log)
 
@@ -388,7 +397,9 @@ async def delete_all_memories() -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memory_ids = [
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+            ]
 
             # delete the accessible memories only
             for memory_id in accessible_memory_ids:
@@ -407,19 +418,13 @@ async def delete_all_memories() -> str:
 
                 # Create history entry
                 history = MemoryStatusHistory(
-                    memory_id=memory_id,
-                    changed_by=user.id,
-                    old_state=MemoryState.active,
-                    new_state=MemoryState.deleted
+                    memory_id=memory_id, changed_by=user.id, old_state=MemoryState.active, new_state=MemoryState.deleted
                 )
                 db.add(history)
 
                 # Create access log entry
                 access_log = MemoryAccessLog(
-                    memory_id=memory_id,
-                    app_id=app.id,
-                    access_type="delete_all",
-                    metadata_={"operation": "bulk_delete"}
+                    memory_id=memory_id, app_id=app.id, access_type="delete_all", metadata_={"operation": "bulk_delete"}
                 )
                 db.add(access_log)
 
@@ -470,6 +475,7 @@ async def handle_get_message(request: Request):
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
 async def handle_post_message(request: Request):
     return await handle_post_message(request)
+
 
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""

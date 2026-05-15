@@ -9,6 +9,7 @@ class MemoryBase(BaseModel):
     content: str
     metadata_: Optional[dict] = Field(default_factory=dict)
 
+
 class MemoryCreate(MemoryBase):
     user_id: UUID
     app_id: UUID
@@ -35,6 +36,7 @@ class Memory(MemoryBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class MemoryUpdate(BaseModel):
     content: Optional[str] = None
     metadata_: Optional[dict] = None
@@ -51,11 +53,12 @@ class MemoryResponse(BaseModel):
     categories: List[str]
     metadata_: Optional[dict] = None
 
-    @validator('created_at', pre=True)
+    @validator("created_at", pre=True)
     def convert_to_epoch(cls, v):
         if isinstance(v, datetime):
             return int(v.timestamp())
         return v
+
 
 class PaginatedMemoryResponse(BaseModel):
     items: List[MemoryResponse]

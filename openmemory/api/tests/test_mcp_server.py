@@ -25,6 +25,7 @@ MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def test_app():
     """Create a minimal FastAPI app with just the MCP router for testing."""
@@ -46,6 +47,7 @@ async def client(test_app):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _jsonrpc(method: str, params: dict | None = None, req_id: int = 1) -> dict:
     """Build a JSON-RPC 2.0 request envelope."""
@@ -72,6 +74,7 @@ def _initialize_payload(req_id: int = 1) -> dict:
 # ---------------------------------------------------------------------------
 # Streamable HTTP — route existence & basic protocol
 # ---------------------------------------------------------------------------
+
 
 class TestStreamableHTTPBasic:
     """Verify the Streamable HTTP route is registered and responds."""
@@ -137,6 +140,7 @@ class TestStreamableHTTPBasic:
 # Streamable HTTP — full protocol flow
 # ---------------------------------------------------------------------------
 
+
 class TestStreamableHTTPProtocol:
     """End-to-end JSON-RPC flows over Streamable HTTP."""
 
@@ -159,8 +163,7 @@ class TestStreamableHTTPProtocol:
         data = resp.json()
         assert "result" in data
         tool_names = {t["name"] for t in data["result"]["tools"]}
-        expected = {"add_memories", "search_memory", "list_memories",
-                    "delete_memories", "delete_all_memories"}
+        expected = {"add_memories", "search_memory", "list_memories", "delete_memories", "delete_all_memories"}
         assert expected.issubset(tool_names), f"Missing tools: {expected - tool_names}"
 
     @pytest.mark.asyncio
@@ -210,9 +213,7 @@ class TestStreamableHTTPProtocol:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert "error" in data or (
-            "result" in data and data["result"].get("isError")
-        )
+        assert "error" in data or ("result" in data and data["result"].get("isError"))
 
     @pytest.mark.asyncio
     async def test_unknown_jsonrpc_method(self, client):
@@ -239,6 +240,7 @@ class TestStreamableHTTPProtocol:
 # ---------------------------------------------------------------------------
 # Streamable HTTP — context variable handling
 # ---------------------------------------------------------------------------
+
 
 class TestStreamableHTTPContext:
     """Verify that user_id and client_name context variables are set correctly."""
@@ -330,6 +332,7 @@ class TestStreamableHTTPContext:
 # Streamable HTTP — response correctness
 # ---------------------------------------------------------------------------
 
+
 class TestStreamableHTTPResponses:
     """Verify that captured responses are returned correctly to the caller."""
 
@@ -379,6 +382,7 @@ class TestStreamableHTTPResponses:
 # ---------------------------------------------------------------------------
 # Route registration
 # ---------------------------------------------------------------------------
+
 
 class TestRouteRegistration:
     """Verify all expected routes are registered in the router."""
