@@ -8,6 +8,17 @@
 
 **Tech Stack:** Python 3.9+, FastAPI, mem0ai SDK, google-genai library
 
+## Post-Code Checklist
+
+After modifying Python files, **always run**:
+
+```bash
+cd openmemory/api
+uv run ruff check --fix .      # Lint + auto-fix
+uv run ty check .               # Type check
+uv run ruff format .            # Format
+```
+
 ---
 
 ## File Structure
@@ -40,10 +51,16 @@ def _build_gemini_llm_config(model, api_key, base_url, ollama_base_url):
 
 This creates the Gemini LLM config factory following the same pattern as Ollama/OpenAI.
 
-- [ ] **Step 2: Verify syntax**
+- [ ] **Step 2: Lint & Format**
 
-Run: `python3 -m py_compile openmemory/api/app/utils/memory.py`
-Expected: No syntax errors
+```bash
+cd openmemory/api
+uv run ruff check --fix .
+uv run ty check .
+uv run ruff format .
+```
+
+Expected: No errors, formatted output
 
 - [ ] **Step 3: Commit**
 
@@ -81,10 +98,16 @@ def _build_gemini_embedder_config(model, api_key, base_url, ollama_base_url, llm
 
 This creates the Gemini embedder config factory.
 
-- [ ] **Step 2: Verify syntax**
+- [ ] **Step 2: Lint & Format**
 
-Run: `python3 -m py_compile openmemory/api/app/utils/memory.py`
-Expected: No syntax errors
+```bash
+cd openmemory/api
+uv run ruff check --fix .
+uv run ty check .
+uv run ruff format .
+```
+
+Expected: No errors, formatted output
 
 - [ ] **Step 3: Commit**
 
@@ -148,10 +171,16 @@ _EMBEDDER_CONFIG_FACTORIES = {
 }
 ```
 
-- [ ] **Step 3: Verify syntax**
+- [ ] **Step 3: Lint & Format**
 
-Run: `python3 -m py_compile openmemory/api/app/utils/memory.py`
-Expected: No syntax errors
+```bash
+cd openmemory/api
+uv run ruff check --fix .
+uv run ty check .
+uv run ruff format .
+```
+
+Expected: No errors, formatted output
 
 - [ ] **Step 4: Commit**
 
