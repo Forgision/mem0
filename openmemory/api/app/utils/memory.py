@@ -224,6 +224,7 @@ def _build_gemini_embedder_config(model, api_key, base_url, ollama_base_url, llm
 _EMBEDDER_CONFIG_FACTORIES = {
     "ollama": _build_ollama_embedder_config,
     "openai": _build_openai_embedder_config,
+    "gemini": _build_gemini_embedder_config,
 }
 
 
