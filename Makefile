@@ -19,7 +19,7 @@ docker-down:
 	cd openmemory && docker-compose down
 
 upd:
-	cd openmemory && sudo docker compose down && \
+	sudo docker compose -f openmemory/docker-compose.yml down && \
 	sudo docker rmi mem0/openmemory-mcp mem0/openmemory-ui:latest 2>/dev/null; \
-	sudo docker compose build --no-cache openmemory-mcp openmemory-ui && \
-	sudo docker compose up -d
+	sudo docker compose -f openmemory/docker-compose.yml build --no-cache openmemory-mcp openmemory-ui && \
+	sudo docker compose -f openmemory/docker-compose.yml up -d
