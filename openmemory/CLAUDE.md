@@ -26,6 +26,14 @@ Existing: ollama, openai, gemini
 
 `api/config.json` is example only. Real config in database `configs` table via `/api/v1/config/*` API.
 
+## Categorization
+
+Memory categorization uses the configured LLM provider from mem0's Memory client.
+- Structured output (JSON mode): openai, openai_structured, gemini
+- Text fallback: ollama, anthropic, groq, together, and others
+
+Set `LLM_PROVIDER` environment variable to control which LLM is used.
+
 ## Workarounds
 
 Gemini base_url: Set `GOOGLE_GEMINI_BASE_URL` env var (mem0ai doesn't pass it).
