@@ -161,6 +161,7 @@ def _build_gemini_llm_config(model, api_key, base_url, ollama_base_url):
     # Set GOOGLE_API_KEY env var for custom endpoints via google-genai's own mechanism.
     if base_url:
         import os
+
         os.environ.setdefault("GOOGLE_GEMINI_BASE_URL", base_url)
     return config
 
@@ -223,6 +224,7 @@ def _build_gemini_embedder_config(model, api_key, base_url, ollama_base_url, llm
     # Set via GOOGLE_GEMINI_BASE_URL env var for google-genai SDK.
     if base_url:
         import os
+
         os.environ.setdefault("GOOGLE_GEMINI_BASE_URL", base_url)
     return config
 
