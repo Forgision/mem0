@@ -277,7 +277,7 @@ async def import_backup(
     mode: str = Query("overwrite"),
     db: Session = Depends(get_db),
 ):
-    if not file.filename.endswith(".zip"):
+    if file.filename is None or not file.filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Expected a zip file.")
 
     if mode not in {"skip", "overwrite"}:

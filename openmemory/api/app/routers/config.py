@@ -164,10 +164,11 @@ async def update_configuration(config: ConfigSchema, db: Session = Depends(get_d
     if config.openmemory is not None:
         if "openmemory" not in updated_config:
             updated_config["openmemory"] = {}
-        updated_config["openmemory"].update(config.openmemory.dict(exclude_none=True))
+        updated_config["openmemory"].update(config.openmemory.model_dump(exclude_none=True))
 
     # Update mem0 settings
-    updated_config["mem0"] = config.mem0.dict(exclude_none=True)
+    assert config.mem0 is not None, "mem0 configuration must be provided"
+    updated_config["mem0"] = config.mem0.model_dump(exclude_none=True)
 
 
 @router.patch("/", response_model=ConfigSchema)
@@ -183,7 +184,7 @@ async def patch_configuration(config_update: ConfigSchema, db: Session = Depends
                 source[key] = value
         return source
 
-    update_data = config_update.dict(exclude_unset=True)
+    update_data = config_update.model_dump(exclude_unset=True)
     updated_config = deep_update(current_config, update_data)
 
     save_config_to_db(db, updated_config)
@@ -224,7 +225,7 @@ async def update_llm_configuration(llm_config: LLMProvider, db: Session = Depend
         current_config["mem0"] = {}
 
     # Update the LLM configuration
-    current_config["mem0"]["llm"] = llm_config.dict(exclude_none=True)
+    current_config["mem0"]["llm"] = llm_config.model_dump(exclude_none=True)
 
     # Save the configuration to database
     save_config_to_db(db, current_config)
@@ -250,7 +251,7 @@ async def update_embedder_configuration(embedder_config: EmbedderProvider, db: S
         current_config["mem0"] = {}
 
     # Update the Embedder configuration
-    current_config["mem0"]["embedder"] = embedder_config.dict(exclude_none=True)
+    current_config["mem0"]["embedder"] = embedder_config.model_dump(exclude_none=True)
 
     # Save the configuration to database
     save_config_to_db(db, current_config)
@@ -276,7 +277,7 @@ async def update_vector_store_configuration(vector_store_config: VectorStoreProv
         current_config["mem0"] = {}
 
     # Update the Vector Store configuration
-    current_config["mem0"]["vector_store"] = vector_store_config.dict(exclude_none=True)
+    current_config["mem0"]["vector_store"] = vector_store_config.model_dump(exclude_none=True)
 
     # Save the configuration to database
     save_config_to_db(db, current_config)
@@ -302,7 +303,7 @@ async def update_openmemory_configuration(openmemory_config: OpenMemoryConfig, d
         current_config["openmemory"] = {}
 
     # Update the OpenMemory configuration
-    current_config["openmemory"].update(openmemory_config.dict(exclude_none=True))
+    current_config["openmemory"].update(openmemory_config.model_dump(exclude_none=True))
 
     # Save the configuration to database
     save_config_to_db(db, current_config)
