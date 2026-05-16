@@ -1,22 +1,10 @@
 import logging
 from typing import List
 
+from app.utils.memory import get_memory_client
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
-from dotenv import load_dotenv
-from openai import OpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
-
-load_dotenv()
-
-_openai_client: OpenAI | None = None
-
-
-def _get_openai_client() -> OpenAI:
-    global _openai_client
-    if _openai_client is None:
-        _openai_client = OpenAI()
-    return _openai_client
 
 
 class MemoryCategories(BaseModel):
@@ -37,20 +25,30 @@ def _parse_categories_from_text(text: str) -> List[str]:
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
 def get_categories_for_memory(memory: str) -> List[str]:
     try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            raise RuntimeError("Memory client not initialized")
+
+        llm = memory_client.llm
+        provider = memory_client.config.llm.provider
+
         messages = [{"role": "system", "content": MEMORY_CATEGORIZATION_PROMPT}, {"role": "user", "content": memory}]
 
-        # Let OpenAI handle the pydantic parsing directly
-        completion = _get_openai_client().beta.chat.completions.parse(
-            model="gpt-4o-mini", messages=messages, response_format=MemoryCategories, temperature=0
-        )
+        # Structured output providers (OpenAI, Gemini)
+        if provider in ("openai", "openai_structured", "gemini"):
+            response = llm.generate_response(messages=messages, response_format={"type": "json_object"})
+            try:
+                parsed = MemoryCategories.model_validate_json(response)
+                return [cat.strip().lower() for cat in parsed.categories]
+            except Exception as e:
+                logging.error(f"[ERROR] Failed to parse structured output: {e}")
+                return []
 
-        parsed: MemoryCategories = completion.choices[0].message.parsed
-        return [cat.strip().lower() for cat in parsed.categories]
+        # Fallback: text parsing for ollama, anthropic, groq, etc.
+        else:
+            response = llm.generate_response(messages=messages)
+            return _parse_categories_from_text(response)
 
     except Exception as e:
         logging.error(f"[ERROR] Failed to get categories: {e}")
-        try:
-            logging.debug(f"[DEBUG] Raw response: {completion.choices[0].message.content}")
-        except Exception as debug_e:
-            logging.debug(f"[DEBUG] Could not extract raw response: {debug_e}")
         raise

@@ -4,7 +4,6 @@ import uuid
 
 import sqlalchemy as sa
 from app.database import Base
-from app.utils.categorization import get_categories_for_memory
 from sqlalchemy import (
     JSON,
     UUID,
@@ -177,9 +176,12 @@ class MemoryAccessLog(Base):
 
 
 def categorize_memory(memory: Memory, db: Session) -> None:
-    """Categorize a memory using OpenAI and store the categories in the database."""
+    """Categorize a memory using the configured LLM and store the categories in the database."""
     try:
-        # Get categories from OpenAI
+        # Import here to avoid circular dependency
+        from app.utils.categorization import get_categories_for_memory
+
+        # Get categories from the configured LLM
         categories = get_categories_for_memory(memory.content)
 
         # Get or create categories in the database
