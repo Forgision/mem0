@@ -8,11 +8,30 @@ from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-openai_client = OpenAI()
+
+_openai_client: OpenAI | None = None
+
+
+def _get_openai_client() -> OpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI()
+    return _openai_client
 
 
 class MemoryCategories(BaseModel):
     categories: List[str]
+
+
+def _parse_categories_from_text(text: str) -> List[str]:
+    """Parse categories from plain text response (fallback for non-structured providers)."""
+    try:
+        # Try to extract comma-separated values
+        categories = [cat.strip().lower() for cat in text.split(",")]
+        return [cat for cat in categories if cat]
+    except Exception:
+        logging.warning(f"[WARN] Failed to parse categories from text: {text}")
+        return []
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
@@ -21,7 +40,7 @@ def get_categories_for_memory(memory: str) -> List[str]:
         messages = [{"role": "system", "content": MEMORY_CATEGORIZATION_PROMPT}, {"role": "user", "content": memory}]
 
         # Let OpenAI handle the pydantic parsing directly
-        completion = openai_client.beta.chat.completions.parse(
+        completion = _get_openai_client().beta.chat.completions.parse(
             model="gpt-4o-mini", messages=messages, response_format=MemoryCategories, temperature=0
         )
 
