@@ -32,6 +32,9 @@ def get_categories_for_memory(memory: str) -> List[str]:
         llm = memory_client.llm
         provider = memory_client.config.llm.provider
 
+        if not provider or not isinstance(provider, str):
+            raise ValueError(f"Invalid LLM provider in config: {provider!r}")
+
         messages = [{"role": "system", "content": MEMORY_CATEGORIZATION_PROMPT}, {"role": "user", "content": memory}]
 
         # Structured output providers (OpenAI, Gemini)
