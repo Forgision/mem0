@@ -52,7 +52,7 @@ def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, us
     return memory
 
 
-def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
+def get_accessible_memory_ids(db: Session, app_id: UUID) -> Optional[Set[UUID]]:
     """
     Get the set of memory IDs that the app has access to based on app-level ACL rules.
     Returns all memory IDs if no specific restrictions are found.

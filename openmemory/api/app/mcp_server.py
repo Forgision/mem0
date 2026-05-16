@@ -20,6 +20,7 @@ import datetime
 import json
 import logging
 import uuid
+from uuid import UUID
 
 import anyio
 
@@ -174,9 +175,11 @@ async def search_memory(query: str) -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Get accessible memory IDs based on ACL
+            # SQLAlchemy Column types not inferred by ty; app.id is always UUID at runtime
+            _app_id: UUID | None = app.id  # type: ignore
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
             accessible_memory_ids = [
-                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, _app_id)
             ]
 
             filters = {"user_id": uid}
@@ -258,9 +261,10 @@ async def list_memories() -> str:
             filtered_memories = []
 
             # Filter memories based on permissions
+            _app_id: UUID | None = app.id  # type: ignore
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
             accessible_memory_ids = [
-                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, _app_id)
             ]
             if isinstance(memories, dict) and "results" in memories:
                 for memory_data in memories["results"]:
@@ -281,7 +285,7 @@ async def list_memories() -> str:
                 for memory in memories:
                     memory_id = uuid.UUID(memory["id"])
                     memory_obj = db.query(Memory).filter(Memory.id == memory_id).first()
-                    if memory_obj and check_memory_access_permissions(db, memory_obj, app.id):
+                    if memory_obj and check_memory_access_permissions(db, memory_obj, _app_id):
                         # Create access log entry
                         access_log = MemoryAccessLog(
                             memory_id=memory_id,
@@ -321,10 +325,11 @@ async def delete_memories(memory_ids: list[str]) -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Convert string IDs to UUIDs and filter accessible ones
+            _app_id: UUID | None = app.id  # type: ignore
             requested_ids = [uuid.UUID(mid) for mid in memory_ids]
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
             accessible_memory_ids = [
-                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, _app_id)
             ]
 
             # Only delete memories that are both requested and accessible
@@ -396,9 +401,10 @@ async def delete_all_memories() -> str:
             # Get or create user and app
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
+            _app_id: UUID | None = app.id  # type: ignore
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
             accessible_memory_ids = [
-                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+                memory.id for memory in user_memories if check_memory_access_permissions(db, memory, _app_id)
             ]
 
             # delete the accessible memories only
@@ -469,15 +475,15 @@ async def handle_sse(request: Request):
 
 @mcp_router.post("/messages/")
 async def handle_get_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message(request)
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message(request: Request):
-    return await handle_post_message(request)
+async def handle_sse_post_message(request: Request):
+    return await _handle_post_message(request)
 
 
-async def handle_post_message(request: Request):
+async def _handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()

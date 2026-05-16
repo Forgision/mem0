@@ -2,7 +2,10 @@
 name = "openmemory-workspace"
 version = "0.1.0"
 description = "Workspace for OpenMemory (self-hosted memory) and mem0-plugin"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "mem0ai>=2.0.2",
+]
 
 [project.optional-dependencies]
 dev = [

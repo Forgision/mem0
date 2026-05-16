@@ -32,7 +32,7 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
     if isinstance(dt, datetime):
         try:
             return dt.astimezone(UTC).isoformat()
-        except:
+        except Exception:
             return dt.replace(tzinfo=UTC).isoformat()
     return None
 
@@ -327,7 +327,8 @@ async def import_backup(
             db.add(cat)
             db.commit()
             db.refresh(cat)
-        cat_id_map[c["id"]] = cat.id
+        assert cat.id is not None
+        cat_id_map[c["id"]] = cat.id  # type: ignore[assignment]
 
     old_to_new_id: Dict[str, UUID] = {}
     for m in sqlite_data.get("memories", []):

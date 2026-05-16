@@ -35,7 +35,7 @@ import socket
 from app.database import SessionLocal
 from app.models import Config as ConfigModel
 
-from mem0 import Memory
+from mem0 import Memory  # ty: ignore[unresolved-import]
 
 _memory_client = None
 _config_hash = None
@@ -257,10 +257,14 @@ def get_default_memory_config():
     # Check for different vector store configurations based on environment variables
     if os.environ.get("CHROMA_HOST") and os.environ.get("CHROMA_PORT"):
         vector_store_provider = "chroma"
-        vector_store_config.update({"host": os.environ.get("CHROMA_HOST"), "port": int(os.environ.get("CHROMA_PORT"))})
+        _chroma_port = os.environ.get("CHROMA_PORT")
+        assert _chroma_port is not None
+        vector_store_config.update({"host": os.environ.get("CHROMA_HOST"), "port": int(_chroma_port)})
     elif os.environ.get("QDRANT_HOST") and os.environ.get("QDRANT_PORT"):
         vector_store_provider = "qdrant"
-        vector_store_config.update({"host": os.environ.get("QDRANT_HOST"), "port": int(os.environ.get("QDRANT_PORT"))})
+        _qdrant_port = os.environ.get("QDRANT_PORT")
+        assert _qdrant_port is not None
+        vector_store_config.update({"host": os.environ.get("QDRANT_HOST"), "port": int(_qdrant_port)})
     elif os.environ.get("WEAVIATE_CLUSTER_URL") or (
         os.environ.get("WEAVIATE_HOST") and os.environ.get("WEAVIATE_PORT")
     ):
@@ -269,7 +273,9 @@ def get_default_memory_config():
         cluster_url = os.environ.get("WEAVIATE_CLUSTER_URL")
         if not cluster_url:
             weaviate_host = os.environ.get("WEAVIATE_HOST")
-            weaviate_port = int(os.environ.get("WEAVIATE_PORT"))
+            _weaviate_port = os.environ.get("WEAVIATE_PORT")
+            assert _weaviate_port is not None
+            weaviate_port = int(_weaviate_port)
             cluster_url = f"http://{weaviate_host}:{weaviate_port}"
         vector_store_config = {"collection_name": "openmemory", "cluster_url": cluster_url}
     elif os.environ.get("REDIS_URL"):
@@ -280,7 +286,7 @@ def get_default_memory_config():
         vector_store_config.update(
             {
                 "host": os.environ.get("PG_HOST"),
-                "port": int(os.environ.get("PG_PORT")),
+                "port": int(os.environ.get("PG_PORT", "0")),
                 "dbname": os.environ.get("PG_DB", "mem0"),
                 "user": os.environ.get("PG_USER", "mem0"),
                 "password": os.environ.get("PG_PASSWORD", "mem0"),
@@ -290,7 +296,9 @@ def get_default_memory_config():
         vector_store_provider = "milvus"
         # Construct the full URL as expected by MilvusDBConfig
         milvus_host = os.environ.get("MILVUS_HOST")
-        milvus_port = int(os.environ.get("MILVUS_PORT"))
+        _milvus_port = os.environ.get("MILVUS_PORT")
+        assert _milvus_port is not None
+        milvus_port = int(_milvus_port)
         milvus_url = f"http://{milvus_host}:{milvus_port}"
 
         vector_store_config = {
@@ -305,7 +313,9 @@ def get_default_memory_config():
         vector_store_provider = "elasticsearch"
         # Construct the full URL with scheme since Elasticsearch client expects it
         elasticsearch_host = os.environ.get("ELASTICSEARCH_HOST")
-        elasticsearch_port = int(os.environ.get("ELASTICSEARCH_PORT"))
+        _es_port = os.environ.get("ELASTICSEARCH_PORT")
+        assert _es_port is not None
+        elasticsearch_port = int(_es_port)
         # Use http:// scheme since we're not using SSL
         full_host = f"http://{elasticsearch_host}"
 
@@ -322,9 +332,9 @@ def get_default_memory_config():
         )
     elif os.environ.get("OPENSEARCH_HOST") and os.environ.get("OPENSEARCH_PORT"):
         vector_store_provider = "opensearch"
-        vector_store_config.update(
-            {"host": os.environ.get("OPENSEARCH_HOST"), "port": int(os.environ.get("OPENSEARCH_PORT"))}
-        )
+        _os_port = os.environ.get("OPENSEARCH_PORT")
+        assert _os_port is not None
+        vector_store_config.update({"host": os.environ.get("OPENSEARCH_HOST"), "port": int(_os_port)})
     elif os.environ.get("FAISS_PATH"):
         vector_store_provider = "faiss"
         vector_store_config = {
@@ -411,7 +421,7 @@ def _parse_environment_variables(config_dict):
     return config_dict
 
 
-def get_memory_client(custom_instructions: str = None):
+def get_memory_client(custom_instructions: str | None = None):
     """
     Get or initialize the Mem0 client.
 

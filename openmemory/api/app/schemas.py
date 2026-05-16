@@ -49,7 +49,7 @@ class MemoryResponse(BaseModel):
     created_at: int
     state: str
     app_id: UUID
-    app_name: str
+    app_name: Optional[str] = None
     categories: List[str]
     metadata_: Optional[dict] = None
 

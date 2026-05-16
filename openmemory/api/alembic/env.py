@@ -66,6 +66,7 @@ def run_migrations_online() -> None:
 
     """
     configuration = config.get_section(config.config_ini_section)
+    assert configuration is not None, "Alembic config section not found"
     configuration["sqlalchemy.url"] = os.getenv("DATABASE_URL", "sqlite:///./openmemory.db")
     connectable = engine_from_config(
         configuration,
