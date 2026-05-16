@@ -56,6 +56,11 @@ if [ -f "$OM_DIR/.env" ]; then
 fi
 export NEXT_PUBLIC_USER="${USER}"
 
+# --- Bypass proxy for Docker services ---
+# DinD: local uvicorn must reach Qdrant via Docker hostname, not through HTTP_PROXY
+export NO_PROXY="${NO_PROXY:+$NO_PROXY,}om-store,om-mcp,om-ui,172.18.0.0/16"
+export no_proxy="${no_proxy:+$no_proxy,}om-store,om-mcp,om-ui,172.18.0.0/16"
+
 # --- Check prerequisites ---
 if ! command -v uvicorn &>/dev/null; then
     error "uvicorn not found. Install: uv pip install uvicorn"

@@ -68,6 +68,10 @@ Set `LLM_PROVIDER` env var to control which LLM is used.
 - Unified `.env`: `openmemory/.env` is single config source. Set `USER` once — `NEXT_PUBLIC_USER` derived automatically. No `api/.env` or `ui/.env`.
 - FastAPI trailing slash: `/api/v1/stats` returns 307 redirect. Axios follows transparently.
 - Gemini base_url: Set `GOOGLE_GEMINI_BASE_URL` env var (mem0ai SDK doesn't pass it natively)
+- Gemini config: mem0 `BaseLlmConfig` and embedder base config reject `base_url` key. Provider factories set `GOOGLE_GEMINI_BASE_URL` env var instead.
+- Gemini dependency: `google-genai` package required. Run `uv add google-genai`.
+- Embedder provider independent: Set `EMBEDDER_PROVIDER=gemini` explicitly, otherwise defaults to `openai` even when `LLM_PROVIDER=gemini`.
+- DinD proxy: `HTTP_PROXY` blocks Docker hostnames (om-store, om-mcp). `run-dev.sh` sets `NO_PROXY` automatically. If adding new Docker services, update the NO_PROXY line in `openmemory/scripts/run-dev.sh`.
 
 ### Docker Services
 

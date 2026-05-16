@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Workspace for OpenMemory (self-hosted memory) and mem0-plugin"
 requires-python = ">=3.11,<4.0"
 dependencies = [
+    "google-genai>=2.3.0",
     "mem0ai>=2.0.2",
 ]
 

@@ -157,8 +157,11 @@ def _build_gemini_llm_config(model, api_key, base_url, ollama_base_url):
     config = {"model": model or "gemini-2.5-flash-lite"}
     if api_key:
         config["api_key"] = api_key
+    # mem0 SDK + google-genai don't support base_url in config.
+    # Set GOOGLE_API_KEY env var for custom endpoints via google-genai's own mechanism.
     if base_url:
-        config["base_url"] = base_url
+        import os
+        os.environ.setdefault("GOOGLE_GEMINI_BASE_URL", base_url)
     return config
 
 
@@ -216,8 +219,11 @@ def _build_gemini_embedder_config(model, api_key, base_url, ollama_base_url, llm
     config = {"model": model or "gemini-embedding-001"}
     if api_key:
         config["api_key"] = api_key
+    # mem0 SDK doesn't support base_url for Gemini embedder config.
+    # Set via GOOGLE_GEMINI_BASE_URL env var for google-genai SDK.
     if base_url:
-        config["base_url"] = base_url
+        import os
+        os.environ.setdefault("GOOGLE_GEMINI_BASE_URL", base_url)
     return config
 
 
