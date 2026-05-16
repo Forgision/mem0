@@ -12,6 +12,12 @@ from fastapi_pagination import add_pagination
 
 app = FastAPI(title="OpenMemory API")
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 app.add_middleware(
     CORSMiddleware,  # ty:ignore[invalid-argument-type]
     allow_origins=["*"],

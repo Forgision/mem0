@@ -7,6 +7,12 @@ services:
       - "6333:6333"
     volumes:
       - mem0_storage:/mem0/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - default
   om-mcp:
@@ -20,7 +26,8 @@ services:
     env_file:
       - api/.env
     depends_on:
-      - om-store
+      om-store:
+        condition: service_healthy
     ports:
       - "8765:8765"
     # For live reload with local source, replace named volume with bind mount:
@@ -29,6 +36,12 @@ services:
     #   command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 4"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     networks:
       - default
   om-ui:
@@ -38,6 +51,9 @@ services:
     build:
       context: ui/
       dockerfile: Dockerfile
+    depends_on:
+      om-mcp:
+        condition: service_healthy
     ports:
       - "3000:3000"
     env_file:
@@ -45,6 +61,12 @@ services:
     environment:
       - NEXT_PUBLIC_USER_ID=${USER}
       - NEXT_LOCAL_API_URL=http://om-mcp:8765
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - default
 
