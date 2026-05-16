@@ -15,10 +15,18 @@ Workspace for OpenMemory (self-hosted memory server) and mem0-plugin (AI editor 
 
 ```bash
 # OpenMemory
-cd openmemory && docker-compose up -d     # Start all services (Qdrant + API + UI)
+cd openmemory && make run                 # Dev mode: Qdrant + local uvicorn + pnpm
+cd openmemory && make stop                # Stop all dev services
+cd openmemory && docker-compose up -d     # Docker mode: all services in containers
 cd openmemory/api && pytest tests/        # Run API tests
 cd openmemory/api && ruff check .         # Lint
 cd openmemory/api && ruff format .        # Format
+
+# Debug
+curl -sf http://localhost:8765/health                           # Backend health
+curl -sf http://localhost:8765/api/v1/stats?user_id=user        # Test endpoint
+curl -sf http://localhost:3000/api/v1/memories/categories?user_id=user  # Via frontend proxy
+tail -f openmemory/logs/backend.log openmemory/logs/frontend.log  # Live logs
 
 # Docs
 cd docs && mintlify dev
@@ -57,9 +65,13 @@ Set `LLM_PROVIDER` env var to control which LLM is used.
 
 ### Workarounds
 
+- Unified `.env`: `openmemory/.env` is single config source. Set `USER` once — `NEXT_PUBLIC_USER` derived automatically. No `api/.env` or `ui/.env`.
+- FastAPI trailing slash: `/api/v1/stats` returns 307 redirect. Axios follows transparently.
 - Gemini base_url: Set `GOOGLE_GEMINI_BASE_URL` env var (mem0ai SDK doesn't pass it natively)
 
 ### Docker Services
+
+**DinD networking:** `localhost` can't reach Docker containers. Use Docker network hostnames (`om-store`, `om-mcp`).
 
 | Service | Port | Description |
 |---------|------|-------------|
