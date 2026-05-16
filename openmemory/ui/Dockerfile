@@ -5,8 +5,17 @@ FROM node:18-alpine AS base
 
 # Install dependencies for pnpm
 RUN apk add --no-cache libc6-compat curl && \
-    corepack enable && \
-    corepack prepare pnpm@latest --activate
+    PNPM_VERSION="9.15.0" && \
+    curl -4 -L "https://registry.npmjs.org/pnpm/-/pnpm-${PNPM_VERSION}.tgz" -o /tmp/pnpm.tgz && \
+    npm install -g /tmp/pnpm.tgz && \
+    rm /tmp/pnpm.tgz
+
+# Configure pnpm to prefer IPv4
+RUN echo "network-family=ipv4" > /root/.npmrc && \
+    echo "fetch-retries=5" >> /root/.npmrc && \
+    echo "fetch-retry-mintimeout=10000" >> /root/.npmrc
+
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
 
 WORKDIR /app
 
@@ -24,7 +33,6 @@ COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY . .
 
 RUN cp next.config.dev.mjs next.config.mjs
-RUN cp .env.example .env
 RUN pnpm build
 
 FROM base AS runner
