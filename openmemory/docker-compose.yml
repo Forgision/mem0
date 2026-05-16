@@ -17,10 +17,14 @@ services:
       - mem0_store
     ports:
       - "8765:8765"
+    # For live reload with local source, replace named volume with bind mount:
+    #   volumes:
+    #     - ./api:/usr/src/openmemory
+    #   command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
     volumes:
-      - ./api:/usr/src/openmemory
+      - mcp_app:/usr/src/openmemory
     command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 4"
   openmemory-ui:
     build:
       context: ui/
@@ -35,3 +39,4 @@ services:
 
 volumes:
   mem0_storage:
+  mcp_app:
