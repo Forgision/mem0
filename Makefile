@@ -1,4 +1,4 @@
-.PHONY: lint format test docs docker-up docker-down upd updc log
+.PHONY: lint format test docs docker-up docker-down upd updc log run stop
 
 lint:
 	cd openmemory/api && ruff check .
@@ -35,3 +35,11 @@ updc:
 ## Dev only: tail logs for all openmemory containers
 log:
 	sudo docker compose -f openmemory/docker-compose-dev.yml logs -f
+
+## Dev only: run Qdrant (Docker) + backend + frontend locally
+run:
+	@bash openmemory/scripts/run-dev.sh
+
+## Dev only: stop local dev processes
+stop:
+	@bash openmemory/scripts/stop-dev.sh
