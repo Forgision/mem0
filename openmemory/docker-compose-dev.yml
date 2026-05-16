@@ -1,22 +1,18 @@
-networks:
-  default:
-    name: docker_default
-    external: true
-
-mem0_store:
+services:
+  om-store:
     image: qdrant/qdrant
     container_name: om-store
+    hostname: om-store
     ports:
       - "6333:6333"
     volumes:
       - mem0_storage:/mem0/storage
-    network:
-     - default
-
+    networks:
+      - default
   om-mcp:
-    image: mem0/om-mcp
-    hostname: om-mcp
+    image: mem0/openmemory-mcp
     container_name: om-mcp
+    hostname: om-mcp
     build: api/
     environment:
       - USER
@@ -24,7 +20,7 @@ mem0_store:
     env_file:
       - api/.env
     depends_on:
-      - mem0_store
+      - om-store
     ports:
       - "8765:8765"
     # For live reload with local source, replace named volume with bind mount:
@@ -33,16 +29,15 @@ mem0_store:
     #   command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 4"
-    network:
-     - default
-
+    networks:
+      - default
   om-ui:
+    image: mem0/openmemory-ui:latest
     container_name: om-ui
+    hostname: om-ui
     build:
       context: ui/
       dockerfile: Dockerfile
-    image: mem0/om-ui:latest
-    hostname: om-ui
     ports:
       - "3000:3000"
     env_file:
@@ -50,8 +45,13 @@ mem0_store:
     environment:
       - NEXT_PUBLIC_USER_ID=${USER}
       - NEXT_LOCAL_API_URL=http://om-mcp:8765
-    network:
-     - default
+    networks:
+      - default
+
+networks:
+  default:
+    name: docker_default
+    external: true
 
 volumes:
   mem0_storage:
