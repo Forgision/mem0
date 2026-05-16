@@ -15,6 +15,7 @@ from app.models import (
     User,
 )
 from app.schemas import MemoryResponse
+from app.utils.db import get_or_create_user
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -212,9 +213,7 @@ class CreateMemoryRequest(BaseModel):
 # Create new memory
 @router.post("/")
 async def create_memory(request: CreateMemoryRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = get_or_create_user(db, request.user_id)
     # Get or create app
     app_obj = db.query(App).filter(App.name == request.app, App.owner_id == user.id).first()
     if not app_obj:

@@ -11,8 +11,7 @@ services:
     container_name: om-mcp
     build: api/
     environment:
-      - USER
-      - API_KEY
+      - USER=${USER:-user}
     env_file:
       - api/.env
     depends_on:
@@ -36,7 +35,7 @@ services:
     env_file:
       - ui/.env
     environment:
-      - NEXT_PUBLIC_USER_ID=${USER}
+      - NEXT_PUBLIC_USER_ID=${USER:-user}
       - NEXT_LOCAL_API_URL=http://openmemory-mcp:8765
 
 volumes:
