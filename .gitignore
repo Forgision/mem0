@@ -4,9 +4,8 @@ __pycache__/
 *$py.class
 **/node_modules/
 
-# Self-hosted server local runtime state
-server/history/
-server/.env
+# OpenMemory local database
+openmemory/api/openmemory.db
 
 # C extensions
 *.so
@@ -170,7 +169,6 @@ cython_debug/
 # Database
 db
 test-db
-!embedchain/embedchain/core/db/
 
 .vscode
 .idea/
@@ -191,3 +189,4 @@ qdrant_storage/
 .crossnote
 testing.ipynb
 .pi/superpowers-state.json
+.references

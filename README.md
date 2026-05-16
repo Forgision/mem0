@@ -9,6 +9,8 @@
   </a>
 </p>
 
+> **Note:** This workspace contains two active projects: **openmemory/** (self-hosted memory server) and **mem0-plugin/** (AI editor plugin). The original mem0 SDK and related packages are archived in `.references/` for reference only.
+
 <p align="center">
   <a href="https://mem0.ai">Learn more</a>
   ·
