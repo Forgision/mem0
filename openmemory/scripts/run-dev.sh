@@ -12,9 +12,6 @@ FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
 BACKEND_LOG="$LOGS_DIR/backend.log"
 FRONTEND_LOG="$LOGS_DIR/frontend.log"
 
-QDRANT_HOST="om-store"
-QDRANT_PORT="6333"
-
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -52,6 +49,12 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$LOGS_DIR"
+
+# --- Source unified .env ---
+if [ -f "$OM_DIR/.env" ]; then
+    set -a; source "$OM_DIR/.env"; set +a
+fi
+export NEXT_PUBLIC_USER="${USER}"
 
 # --- Check prerequisites ---
 if ! command -v uvicorn &>/dev/null; then
@@ -111,8 +114,7 @@ info "Qdrant ready at $QDRANT_HOST:$QDRANT_PORT"
 info "Starting backend (uvicorn)..."
 (
     cd "$OM_DIR/api"
-    QDRANT_HOST="$QDRANT_HOST" QDRANT_PORT="$QDRANT_PORT" \
-        uvicorn main:app --host 0.0.0.0 --port 8765 --reload
+    uvicorn main:app --host 0.0.0.0 --port 8765 --reload
 ) > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > "$BACKEND_PID_FILE"
@@ -129,7 +131,7 @@ fi
 info "Starting frontend (pnpm dev)..."
 (
     cd "$OM_DIR/ui"
-    NEXT_LOCAL_API_URL=http://localhost:8765 pnpm dev
+    pnpm dev
 ) > "$FRONTEND_LOG" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" > "$FRONTEND_PID_FILE"
@@ -155,4 +157,4 @@ info "  Stop:     make stop"
 echo ""
 
 warn "Tailing logs (Ctrl+C to detach — services keep running)"
-tail -f "$BACKEND_LOG" "$FRONTEND_LOG" 2>/dev/null || true
+tail --pid="$BACKEND_PID" -f "$BACKEND_LOG" "$FRONTEND_LOG" 2>/dev/null || true

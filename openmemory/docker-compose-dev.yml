@@ -23,7 +23,7 @@ services:
     environment:
       - USER=${USER:-user}
     env_file:
-      - api/.env
+      - .env
     depends_on:
       om-store:
         condition: service_healthy
@@ -56,9 +56,9 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - ui/.env
+      - .env
     environment:
-      - NEXT_PUBLIC_USER_ID=${USER:-user}
+      - NEXT_PUBLIC_USER=${USER:-user}
       - NEXT_LOCAL_API_URL=http://om-mcp:8765
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
